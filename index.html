@@ -1,0 +1,360 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Particle Animation</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        canvas {
+            display: block;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 300px;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+        #controls.collapsed {
+            transform: translateX(-90%);
+            opacity: 0.7;
+        }
+        #toggleControls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 101;
+            display: none;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        button {
+            background: #4a4a8a;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        button:hover {
+            background: #5a5a9a;
+        }
+        select {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+        }
+        @media (max-width: 768px) {
+            #controls {
+                max-width: 200px;
+                font-size: 14px;
+            }
+            #toggleControls {
+                display: block;
+            }
+        }
+    </style>
+
+<base target="_self">
+
+
+    </head><body><button id="toggleControls">☰</button>
+    <div id="controls">
+        <div class="control-group">
+            <label for="particleCount">Particle Count</label>
+            <input type="range" id="particleCount" min="100" max="5000" value="2000" step="100">
+        </div>
+        <div class="control-group">
+            <label for="speed">Speed</label>
+            <input type="range" id="speed" min="0.1" max="2" value="0.5" step="0.1">
+        </div>
+        <div class="control-group">
+            <label for="size">Particle Size</label>
+            <input type="range" id="size" min="0.1" max="5" value="1.5" step="0.1">
+        </div>
+        <div class="control-group">
+            <label for="colorTheme">Color Theme</label>
+            <select id="colorTheme">
+                <option value="cosmic">Cosmic (Blue/Purple)</option>
+                <option value="nebula">Nebula (Pink/Purple)</option>
+                <option value="sunset">Sunset (Orange/Red)</option>
+                <option value="galaxy">Galaxy (Blue/Green)</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="mouseInteraction">Mouse Interaction</label>
+            <input type="checkbox" id="mouseInteraction" checked="">
+        </div>
+        <div class="control-group">
+            <button id="randomize">Randomize</button>
+            <button id="reset">Reset</button>
+        </div>
+    </div>
+
+    <script>
+        // Main variables
+        let scene, camera, renderer, particles, particleCount = 2000;
+        let mouseX = 0, mouseY = 0;
+        let windowHalfX = window.innerWidth / 2;
+        let windowHalfY = window.innerHeight / 2;
+        let animationSpeed = 0.5;
+        let particleSize = 1.5;
+        let colorTheme = 'cosmic';
+        let mouseInteractionEnabled = true;
+
+        // Initialize the scene
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 30;
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000);
+            document.body.appendChild(renderer.domElement);
+            
+            // Create particles
+            createParticles();
+            
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('mousemove', onDocumentMouseMove);
+            
+            // UI controls
+            setupControls();
+            
+            // Start animation loop
+            animate();
+        }
+        
+        // Create particle system
+        function createParticles() {
+            // Remove existing particles if they exist
+            if (particles) {
+                scene.remove(particles);
+                particles.geometry.dispose();
+                particles.material.dispose();
+            }
+            
+            // Create geometry
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            
+            // Set random positions and colors
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 200;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 200;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 200;
+                
+                // Set colors based on theme
+                switch(colorTheme) {
+                    case 'cosmic':
+                        colors[i * 3] = Math.random() * 0.2 + 0.1; // R
+                        colors[i * 3 + 1] = Math.random() * 0.3 + 0.2; // G
+                        colors[i * 3 + 2] = Math.random() * 0.5 + 0.5; // B
+                        break;
+                    case 'nebula':
+                        colors[i * 3] = Math.random() * 0.5 + 0.5; // R
+                        colors[i * 3 + 1] = Math.random() * 0.2 + 0.1; // G
+                        colors[i * 3 + 2] = Math.random() * 0.5 + 0.5; // B
+                        break;
+                    case 'sunset':
+                        colors[i * 3] = Math.random() * 0.7 + 0.3; // R
+                        colors[i * 3 + 1] = Math.random() * 0.4 + 0.1; // G
+                        colors[i * 3 + 2] = Math.random() * 0.2 + 0.1; // B
+                        break;
+                    case 'galaxy':
+                        colors[i * 3] = Math.random() * 0.2 + 0.1; // R
+                        colors[i * 3 + 1] = Math.random() * 0.5 + 0.3; // G
+                        colors[i * 3 + 2] = Math.random() * 0.3 + 0.2; // B
+                        break;
+                }
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            // Create material
+            const material = new THREE.PointsMaterial({
+                size: particleSize,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+            
+            // Create particle system
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Rotate particles
+            particles.rotation.x += 0.0005 * animationSpeed;
+            particles.rotation.y += 0.001 * animationSpeed;
+            
+            // Mouse interaction effect
+            if (mouseInteractionEnabled) {
+                const positions = particles.geometry.attributes.position.array;
+                for (let i = 0; i < particleCount; i++) {
+                    const dx = mouseX - positions[i * 3];
+                    const dy = mouseY - positions[i * 3 + 1];
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 50) {
+                        positions[i * 3 + 2] += (50 - distance) * 0.01;
+                    }
+                }
+                particles.geometry.attributes.position.needsUpdate = true;
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Window resize handler
+        function onWindowResize() {
+            windowHalfX = window.innerWidth / 2;
+            windowHalfY = window.innerHeight / 2;
+            
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Mouse move handler
+        function onDocumentMouseMove(event) {
+            mouseX = (event.clientX - windowHalfX) * 0.2;
+            mouseY = (event.clientY - windowHalfY) * 0.2;
+        }
+        
+        // Setup UI controls
+        function setupControls() {
+            // Get DOM elements
+            const particleCountSlider = document.getElementById('particleCount');
+            const speedSlider = document.getElementById('speed');
+            const sizeSlider = document.getElementById('size');
+            const colorThemeSelect = document.getElementById('colorTheme');
+            const mouseInteractionCheckbox = document.getElementById('mouseInteraction');
+            const randomizeButton = document.getElementById('randomize');
+            const resetButton = document.getElementById('reset');
+            const toggleControlsButton = document.getElementById('toggleControls');
+            const controlsPanel = document.getElementById('controls');
+            
+            // Event listeners for controls
+            particleCountSlider.addEventListener('input', () => {
+                particleCount = parseInt(particleCountSlider.value);
+                createParticles();
+            });
+            
+            speedSlider.addEventListener('input', () => {
+                animationSpeed = parseFloat(speedSlider.value);
+            });
+            
+            sizeSlider.addEventListener('input', () => {
+                particleSize = parseFloat(sizeSlider.value);
+                particles.material.size = particleSize;
+            });
+            
+            colorThemeSelect.addEventListener('change', () => {
+                colorTheme = colorThemeSelect.value;
+                createParticles();
+            });
+            
+            mouseInteractionCheckbox.addEventListener('change', () => {
+                mouseInteractionEnabled = mouseInteractionCheckbox.checked;
+            });
+            
+            randomizeButton.addEventListener('click', () => {
+                // Randomize settings
+                particleCount = Math.floor(Math.random() * 4900) + 100;
+                animationSpeed = Math.random() * 1.9 + 0.1;
+                particleSize = Math.random() * 4.9 + 0.1;
+                const themes = ['cosmic', 'nebula', 'sunset', 'galaxy'];
+                colorTheme = themes[Math.floor(Math.random() * themes.length)];
+                
+                // Update UI
+                particleCountSlider.value = particleCount;
+                speedSlider.value = animationSpeed;
+                sizeSlider.value = particleSize;
+                colorThemeSelect.value = colorTheme;
+                
+                // Recreate particles
+                createParticles();
+            });
+            
+            resetButton.addEventListener('click', () => {
+                // Reset to defaults
+                particleCount = 2000;
+                animationSpeed = 0.5;
+                particleSize = 1.5;
+                colorTheme = 'cosmic';
+                mouseInteractionEnabled = true;
+                
+                // Update UI
+                particleCountSlider.value = particleCount;
+                speedSlider.value = animationSpeed;
+                sizeSlider.value = particleSize;
+                colorThemeSelect.value = colorTheme;
+                mouseInteractionCheckbox.checked = mouseInteractionEnabled;
+                
+                // Recreate particles
+                createParticles();
+            });
+            
+            // Toggle controls panel
+            toggleControlsButton.addEventListener('click', () => {
+                controlsPanel.classList.toggle('collapsed');
+            });
+            
+            // Show toggle button on mobile
+            if (window.innerWidth <= 768) {
+                controlsPanel.classList.add('collapsed');
+                toggleControlsButton.style.display = 'block';
+            }
+        }
+        
+        // Start the application
+        init();
+    </script>
+
+              
+          
+                
+          
+              
+</body></html>
